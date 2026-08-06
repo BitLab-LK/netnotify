@@ -88,6 +88,17 @@ download_binary() {
   arch="$(arch_name)"
   tmp="$(mktemp -d)"
   trap 'rm -rf "${tmp}"' EXIT
+
+  if [[ -f "./netnotify" ]]; then
+    echo "Installing local netnotify binary..."
+    install -m 0755 "./netnotify" "${INSTALL_DIR}/netnotify"
+    return 0
+  elif [[ -f "./build/netnotify" ]]; then
+    echo "Installing built netnotify binary..."
+    install -m 0755 "./build/netnotify" "${INSTALL_DIR}/netnotify"
+    return 0
+  fi
+
   version="${NETNOTIFY_VERSION:-latest}"
   if [[ "${version}" == "latest" ]]; then
     url="https://github.com/${REPO}/releases/latest/download/netnotify_linux_${arch}.tar.gz"
@@ -96,12 +107,21 @@ download_binary() {
   fi
   asset="${tmp}/netnotify.tar.gz"
   echo "Downloading netnotify from ${url}"
-  if ! curl -fL --retry 3 --connect-timeout 10 -o "${asset}" "${url}"; then
-    echo "Could not download release asset. Set NETNOTIFY_VERSION to a published release tag or install from a local package." >&2
-    exit 1
+  if curl -fL --retry 3 --connect-timeout 10 -o "${asset}" "${url}"; then
+    tar -xzf "${asset}" -C "${tmp}"
+    install -m 0755 "$(find "${tmp}" -type f -name netnotify | head -n 1)" "${INSTALL_DIR}/netnotify"
+    return 0
   fi
-  tar -xzf "${asset}" -C "${tmp}"
-  install -m 0755 "$(find "${tmp}" -type f -name netnotify | head -n 1)" "${INSTALL_DIR}/netnotify"
+
+  if command -v go >/dev/null 2>&1 && [[ -f "./cmd/netnotify/main.go" ]]; then
+    echo "Release asset download failed. Building netnotify from source using go..."
+    go build -o "${INSTALL_DIR}/netnotify" ./cmd/netnotify
+    return 0
+  fi
+
+  echo "Could not download release asset from ${url}." >&2
+  echo "No published release was found for ${REPO}. Please publish a GitHub release or build the binary locally." >&2
+  exit 1
 }
 
 create_user_and_dirs() {
