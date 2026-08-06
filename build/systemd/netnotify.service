@@ -1,0 +1,21 @@
+[Unit]
+Description=netnotify notification gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=netnotify
+Group=netnotify
+EnvironmentFile=-/etc/netnotify/netnotify.env
+ExecStart=/usr/local/bin/netnotify --config /etc/netnotify/config.yaml
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/netnotify /var/log/netnotify
+
+[Install]
+WantedBy=multi-user.target
