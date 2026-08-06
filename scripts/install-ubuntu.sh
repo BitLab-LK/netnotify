@@ -93,9 +93,10 @@ download_binary() {
     return 0
   fi
 
-  if command -v go >/dev/null 2>&1 && [[ -f "./cmd/netnotify/main.go" ]]; then
-    echo "Release asset download failed. Building netnotify from source using go..."
-    go build -o "${INSTALL_DIR}/netnotify" ./cmd/netnotify
+  if command -v go >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
+    echo "Release asset download failed or missing. Building netnotify from source using go & git..."
+    git clone "https://github.com/${REPO}.git" "${tmp}/src"
+    go build -C "${tmp}/src" -o "${INSTALL_DIR}/netnotify" ./cmd/netnotify
     return 0
   fi
 
