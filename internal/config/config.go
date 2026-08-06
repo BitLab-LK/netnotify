@@ -49,7 +49,7 @@ func Load(path string) (Config, error) {
 func defaults() Config {
 	return Config{
 		Server: ServerConfig{
-			Address: ":8080",
+			Address: ":8085",
 			Metrics: true,
 		},
 		Log: LogConfig{

@@ -11,7 +11,7 @@ curl -fsSL https://raw.githubusercontent.com/BitLab-LK/netnotify/main/scripts/in
 The installer prompts for:
 - **Healthchecks.io Ping URL** (e.g. `https://hc-ping.com/your-uuid-here`).
 - **Ping Interval** (default `1m`).
-- **Local listen address** (default `127.0.0.1:8080`).
+- **Local listen address** (default `127.0.0.1:8085`).
 
 It installs the latest Linux binary, creates the locked-down system user `netnotify`, sets permissions (`0600` for environment secrets), and starts the systemd service.
 
@@ -30,6 +30,6 @@ sudo env \
 
 ```bash
 systemctl status netnotify
-curl -fsS http://127.0.0.1:8080/health
+curl -fsS http://127.0.0.1:8085/health
 netnotify ping --config /etc/netnotify/config.yaml
 ```

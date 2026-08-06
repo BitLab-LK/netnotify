@@ -2,7 +2,7 @@ services:
   netnotify:
     build: .
     image: ghcr.io/bitlab-dev/netnotify:latest
-    ports: ["8080:8080"]
+    ports: ["8085:8085"]
     volumes:
       - ./configs/config.example.yaml:/etc/netnotify/config.yaml:ro
       - ./templates:/templates:ro

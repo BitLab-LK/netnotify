@@ -187,7 +187,7 @@ main() {
     cfg_hb_url="$(grep -E '^\s*url:' "${CONFIG_FILE}" | head -n 1 | awk '{print $2}' | tr -d '"')"
     cfg_hb_interval="$(grep -E '^\s*interval:' "${CONFIG_FILE}" | head -n 1 | awk '{print $2}' | tr -d '"')"
     
-    NETNOTIFY_LISTEN_ADDRESS="${NETNOTIFY_LISTEN_ADDRESS:-${cfg_addr:-127.0.0.1:8080}}"
+    NETNOTIFY_LISTEN_ADDRESS="${NETNOTIFY_LISTEN_ADDRESS:-${cfg_addr:-127.0.0.1:8085}}"
     NETNOTIFY_HEARTBEAT_URL="${NETNOTIFY_HEARTBEAT_URL:-${cfg_hb_url:-}}"
     NETNOTIFY_HEARTBEAT_INTERVAL="${NETNOTIFY_HEARTBEAT_INTERVAL:-${cfg_hb_interval:-1m}}"
   fi
@@ -195,7 +195,7 @@ main() {
   echo "netnotify Healthchecks.io Installer"
   prompt HEARTBEAT_URL "Healthchecks.io Ping URL (e.g. https://hc-ping.com/your-uuid)" "${NETNOTIFY_HEARTBEAT_URL:-}"
   prompt HEARTBEAT_INTERVAL "Ping interval" "${NETNOTIFY_HEARTBEAT_INTERVAL:-1m}"
-  prompt LISTEN_ADDRESS "netnotify local listen address" "${NETNOTIFY_LISTEN_ADDRESS:-127.0.0.1:8080}"
+  prompt LISTEN_ADDRESS "netnotify local listen address" "${NETNOTIFY_LISTEN_ADDRESS:-127.0.0.1:8085}"
 
   install_packages
   create_user_and_dirs

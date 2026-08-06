@@ -8,5 +8,5 @@ FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/netnotify /usr/local/bin/netnotify
 COPY templates /templates
 USER nonroot:nonroot
-EXPOSE 8080
+EXPOSE 8085
 ENTRYPOINT ["/usr/local/bin/netnotify"]
