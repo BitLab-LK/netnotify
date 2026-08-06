@@ -2,6 +2,7 @@
 
 Universal Notification Gateway for Infrastructure Monitoring.
 
+[![CI](https://github.com/BitLab-LK/netnotify/actions/workflows/ci.yml/badge.svg)](https://github.com/BitLab-LK/netnotify/actions)
 [![CI](https://github.com/bitlab-dev/netnotify/actions/workflows/ci.yml/badge.svg)](https://github.com/bitlab-dev/netnotify/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -27,6 +28,17 @@ flowchart LR
 - JSON or console logging with file rotation.
 - Prometheus `/metrics` and `/health` endpoints.
 - Docker, Compose, systemd, GitHub Actions and GoReleaser assets.
+
+
+## One-line Ubuntu install
+
+Run the installer on an Ubuntu host with systemd:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/BitLab-LK/netnotify/main/scripts/install-ubuntu.sh | sudo bash
+```
+
+The installer prompts for the GoWA hosted URL, Basic Auth username and password, optional device ID, WhatsApp receiver type (`user` or `group`), receiver ID, and the local listen address. It installs the latest Linux release, writes `/etc/netnotify/config.yaml`, stores secrets in `/etc/netnotify/netnotify.env` with `0600` permissions, enables the hardened systemd service, and places a Netdata-compatible helper script under `/etc/netdata/custom-plugins.d/`.
 
 ## Quick start
 
