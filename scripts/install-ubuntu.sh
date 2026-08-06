@@ -167,7 +167,8 @@ ReadWritePaths=${STATE_DIR} ${LOG_DIR}
 WantedBy=multi-user.target
 EOF_SERVICE
   systemctl daemon-reload
-  systemctl restart netnotify || systemctl enable --now netnotify
+  systemctl enable netnotify
+  systemctl restart netnotify
 }
 
 main() {
