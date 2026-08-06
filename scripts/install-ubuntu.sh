@@ -134,7 +134,8 @@ create_user_and_dirs() {
 
 write_templates() {
   for severity in critical warning clear test; do
-    cat > "${TEMPLATE_DIR}/${severity}.tmpl" <<'TEMPLATE'
+    if [[ ! -f "${TEMPLATE_DIR}/${severity}.tmpl" ]]; then
+      cat > "${TEMPLATE_DIR}/${severity}.tmpl" <<'TEMPLATE'
 [{{ .Severity }}] {{ .Title }}
 
 {{ .Summary }}
@@ -145,8 +146,9 @@ Started: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
 {{ range $k, $v := .Labels }}{{ $k }}={{ $v }}
 {{ end }}
 TEMPLATE
+      chmod 0644 "${TEMPLATE_DIR}/${severity}.tmpl"
+    fi
   done
-  chmod 0644 "${TEMPLATE_DIR}"/*.tmpl
 }
 
 write_config() {
@@ -229,7 +231,7 @@ ReadWritePaths=${STATE_DIR} ${LOG_DIR}
 WantedBy=multi-user.target
 EOF_SERVICE
   systemctl daemon-reload
-  systemctl enable --now netnotify
+  systemctl restart netnotify || systemctl enable --now netnotify
 }
 
 write_netdata_helper() {
@@ -255,6 +257,30 @@ main() {
     echo "Warning: this installer is designed for Ubuntu/Debian systems." >&2
   fi
 
+  if [[ -r "${ENV_FILE}" ]]; then
+    set -a
+    source "${ENV_FILE}" 2>/dev/null || true
+    set +a
+  fi
+  if [[ -r "${CONFIG_FILE}" ]]; then
+    local cfg_addr cfg_gowa_url cfg_rec_id cfg_group
+    cfg_addr="$(grep -E '^\s*address:' "${CONFIG_FILE}" | head -n 1 | awk '{print $2}' | tr -d '"')"
+    cfg_gowa_url="$(grep -E '^\s*base_url:' "${CONFIG_FILE}" | head -n 1 | awk '{print $2}' | tr -d '"')"
+    cfg_rec_id="$(grep -E '^\s*recipient:' "${CONFIG_FILE}" | head -n 1 | awk '{print $2}' | tr -d '"')"
+    cfg_group="$(grep -E '^\s*group:' "${CONFIG_FILE}" | head -n 1 | awk '{print $2}')"
+    
+    NETNOTIFY_LISTEN_ADDRESS="${NETNOTIFY_LISTEN_ADDRESS:-${cfg_addr:-127.0.0.1:8080}}"
+    NETNOTIFY_GOWA_URL="${NETNOTIFY_GOWA_URL:-${cfg_gowa_url:-}}"
+    NETNOTIFY_RECEIVER_ID="${NETNOTIFY_RECEIVER_ID:-${cfg_rec_id:-}}"
+    if [[ "${cfg_group}" == "true" ]]; then
+      NETNOTIFY_RECEIVER_TYPE="${NETNOTIFY_RECEIVER_TYPE:-group}"
+    elif [[ "${cfg_group}" == "false" ]]; then
+      NETNOTIFY_RECEIVER_TYPE="${NETNOTIFY_RECEIVER_TYPE:-user}"
+    fi
+    NETNOTIFY_GOWA_USERNAME="${NETNOTIFY_GOWA_USERNAME:-${NETNOTIFY_PROVIDERS_GOWA_USERNAME:-}}"
+    NETNOTIFY_GOWA_PASSWORD="${NETNOTIFY_GOWA_PASSWORD:-${NETNOTIFY_PROVIDERS_GOWA_PASSWORD:-}}"
+  fi
+
   echo "netnotify Ubuntu installer"
   prompt GOWA_URL "GoWA base URL, including https:// and port if needed" "${NETNOTIFY_GOWA_URL:-}"
   prompt GOWA_USERNAME "GoWA Basic Auth username" "${NETNOTIFY_GOWA_USERNAME:-}"
@@ -274,7 +300,7 @@ main() {
   write_netdata_helper
 
   echo
-  echo "netnotify is installed and running."
+  echo "netnotify is updated and running."
   echo "Config: ${CONFIG_FILE}"
   echo "Secrets: ${ENV_FILE}"
   echo "Netdata helper: ${NETDATA_NOTIFY_FILE}"
