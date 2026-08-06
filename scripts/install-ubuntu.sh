@@ -87,7 +87,7 @@ download_binary() {
   local arch version asset url tmp
   arch="$(arch_name)"
   tmp="$(mktemp -d)"
-  trap 'rm -rf "${tmp}"' EXIT
+  trap "rm -rf '${tmp}'" EXIT
 
   if [[ -f "./netnotify" ]]; then
     echo "Installing local netnotify binary..."
