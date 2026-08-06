@@ -1,0 +1,12 @@
+services:
+  netnotify:
+    build: .
+    image: ghcr.io/bitlab-dev/netnotify:latest
+    ports: ["8080:8080"]
+    volumes:
+      - ./configs/config.example.yaml:/etc/netnotify/config.yaml:ro
+      - ./templates:/templates:ro
+    environment:
+      NETNOTIFY_PROVIDERS_GOWA_USERNAME: ${NETNOTIFY_PROVIDERS_GOWA_USERNAME:-}
+      NETNOTIFY_PROVIDERS_GOWA_PASSWORD: ${NETNOTIFY_PROVIDERS_GOWA_PASSWORD:-}
+    command: ["--config", "/etc/netnotify/config.yaml"]
