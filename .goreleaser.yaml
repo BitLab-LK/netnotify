@@ -1,12 +1,22 @@
 version: 2
+
 builds:
-  - main: ./cmd/netnotify
+  - id: netnotify
+    main: ./cmd/netnotify
     binary: netnotify
-    env: [CGO_ENABLED=0]
-    goos: [linux, darwin, windows]
-    goarch: [amd64, arm64]
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
 archives:
-  - name_template: "netnotify_{{ .Os }}_{{ .Arch }}"
-    formats: [tar.gz]
+  - format: tar.gz
+    name_template: "netnotify_{{ .Os }}_{{ .Arch }}"
+
 checksum:
-  name_template: checksums.txt
+  name_template: "checksums.txt"
