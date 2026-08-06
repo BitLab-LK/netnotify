@@ -3,6 +3,7 @@
 Universal Notification Gateway for Infrastructure Monitoring.
 
 [![CI](https://github.com/BitLab-LK/netnotify/actions/workflows/ci.yml/badge.svg)](https://github.com/BitLab-LK/netnotify/actions)
+[![CI](https://github.com/bitlab-dev/netnotify/actions/workflows/ci.yml/badge.svg)](https://github.com/bitlab-dev/netnotify/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 netnotify receives alerts from monitoring agents and routes them to notification providers. The first production path is Netdata Agent `health_alarm_notify` to GoWA and WhatsApp groups without Netdata Cloud Pro.

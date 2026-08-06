@@ -24,44 +24,32 @@ is_ubuntu() {
   [[ -r /etc/os-release ]] && . /etc/os-release && [[ "${ID:-}" == "ubuntu" || "${ID_LIKE:-}" == *"ubuntu"* || "${ID_LIKE:-}" == *"debian"* ]]
 }
 
-open_tty() {
-  if [[ ! -r /dev/tty || ! -w /dev/tty ]]; then
-    echo "Interactive installation requires a TTY. Re-run from a terminal or set NETNOTIFY_* environment variables and use bash -s." >&2
-    exit 1
-  fi
-  exec 3</dev/tty
-  exec 4>/dev/tty
-}
-
 prompt() {
   local name="$1" label="$2" default="${3:-}" secret="${4:-false}" value
   while true; do
     if [[ "${secret}" == "true" ]]; then
-      printf '%s' "${label}${default:+ [${default}]}: " >&4
-      IFS= read -r -s value <&3 || value=""
-      printf '\n' >&4
+      read -r -s -p "${label}${default:+ [${default}]}: " value
+      echo
     else
-      printf '%s' "${label}${default:+ [${default}]}: " >&4
-      IFS= read -r value <&3 || value=""
+      read -r -p "${label}${default:+ [${default}]}: " value
     fi
     value="${value:-${default}}"
     if [[ -n "${value}" ]]; then
       printf -v "${name}" '%s' "${value}"
       return
     fi
-    echo "A value is required." >&4
+    echo "A value is required."
   done
 }
 
 prompt_choice() {
   local name="$1" label="$2" default="$3" value
   while true; do
-    printf '%s' "${label} [user/group, default: ${default}]: " >&4
-    IFS= read -r value <&3 || value=""
+    read -r -p "${label} [user/group, default: ${default}]: " value
     value="${value:-${default}}"
     case "${value}" in
       user|group) printf -v "${name}" '%s' "${value}"; return ;;
-      *) echo "Enter 'user' or 'group'." >&4 ;;
+      *) echo "Enter 'user' or 'group'." ;;
     esac
   done
 }
@@ -232,9 +220,7 @@ main() {
     echo "Warning: this installer is designed for Ubuntu/Debian systems." >&2
   fi
 
-  open_tty
-
-  echo "netnotify Ubuntu installer" >&4
+  echo "netnotify Ubuntu installer"
   prompt GOWA_URL "GoWA base URL, including https:// and port if needed" "${NETNOTIFY_GOWA_URL:-}"
   prompt GOWA_USERNAME "GoWA Basic Auth username" "${NETNOTIFY_GOWA_USERNAME:-}"
   prompt GOWA_PASSWORD "GoWA Basic Auth password" "${NETNOTIFY_GOWA_PASSWORD:-}" true
@@ -252,12 +238,12 @@ main() {
   write_systemd
   write_netdata_helper
 
-  echo >&4
-  echo "netnotify is installed and running." >&4
-  echo "Config: ${CONFIG_FILE}" >&4
-  echo "Secrets: ${ENV_FILE}" >&4
-  echo "Netdata helper: ${NETDATA_NOTIFY_FILE}" >&4
-  echo "Health check: curl -fsS http://${LISTEN_ADDRESS}/health" >&4
+  echo
+  echo "netnotify is installed and running."
+  echo "Config: ${CONFIG_FILE}"
+  echo "Secrets: ${ENV_FILE}"
+  echo "Netdata helper: ${NETDATA_NOTIFY_FILE}"
+  echo "Health check: curl -fsS http://${LISTEN_ADDRESS}/health"
 }
 
 main "$@"
