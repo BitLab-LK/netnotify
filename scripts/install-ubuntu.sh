@@ -26,30 +26,45 @@ is_ubuntu() {
 
 prompt() {
   local name="$1" label="$2" default="${3:-}" secret="${4:-false}" value
+  if [[ ! -t 0 && ! -c /dev/tty ]]; then
+    if [[ -n "${default}" ]]; then
+      printf -v "${name}" '%s' "${default}"
+      return 0
+    else
+      echo "Error: '${label}' is required but terminal is non-interactive and no default value was supplied." >&2
+      exit 1
+    fi
+  fi
+
   while true; do
     if [[ "${secret}" == "true" ]]; then
-      read -r -s -p "${label}${default:+ [${default}]}: " value
-      echo
+      read -r -s -p "${label}${default:+ [${default}]}: " value < /dev/tty
+      echo >&2
     else
-      read -r -p "${label}${default:+ [${default}]}: " value
+      read -r -p "${label}${default:+ [${default}]}: " value < /dev/tty
     fi
     value="${value:-${default}}"
     if [[ -n "${value}" ]]; then
       printf -v "${name}" '%s' "${value}"
-      return
+      return 0
     fi
-    echo "A value is required."
+    echo "A value is required." >&2
   done
 }
 
 prompt_choice() {
   local name="$1" label="$2" default="$3" value
+  if [[ ! -t 0 && ! -c /dev/tty ]]; then
+    printf -v "${name}" '%s' "${default}"
+    return 0
+  fi
+
   while true; do
-    read -r -p "${label} [user/group, default: ${default}]: " value
+    read -r -p "${label} [user/group, default: ${default}]: " value < /dev/tty
     value="${value:-${default}}"
     case "${value}" in
-      user|group) printf -v "${name}" '%s' "${value}"; return ;;
-      *) echo "Enter 'user' or 'group'." ;;
+      user|group) printf -v "${name}" '%s' "${value}"; return 0 ;;
+      *) echo "Enter 'user' or 'group'." >&2 ;;
     esac
   done
 }
