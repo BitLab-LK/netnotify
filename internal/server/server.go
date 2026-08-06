@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bitlab-dev/netnotify/internal/config"
@@ -11,6 +12,7 @@ import (
 	"github.com/bitlab-dev/netnotify/internal/logger"
 	"github.com/bitlab-dev/netnotify/internal/queue"
 	"github.com/bitlab-dev/netnotify/internal/source/netdata"
+	"github.com/bitlab-dev/netnotify/internal/templates"
 )
 
 type Server struct {
@@ -75,6 +77,7 @@ func (s *Server) notify(w http.ResponseWriter, r *http.Request) {
 	if n.Provider == "" {
 		n.Provider = s.cfg.Providers.Default
 	}
+	s.applyTemplate(&n)
 	accepted := s.q.Enqueue(n)
 	w.WriteHeader(http.StatusAccepted)
 	_ = json.NewEncoder(w).Encode(map[string]bool{"accepted": accepted})
@@ -100,7 +103,18 @@ func (s *Server) netdata(w http.ResponseWriter, r *http.Request) {
 	if n.Provider == "" {
 		n.Provider = s.cfg.Providers.Default
 	}
+	s.applyTemplate(&n)
 	accepted := s.q.Enqueue(n)
 	w.WriteHeader(http.StatusAccepted)
 	_ = json.NewEncoder(w).Encode(map[string]bool{"accepted": accepted})
+}
+
+func (s *Server) applyTemplate(n *domain.Notification) {
+	if s.cfg.Templates.Directory == "" {
+		return
+	}
+	r := templates.New(s.cfg.Templates.Directory)
+	if rendered, err := r.Render(*n); err == nil && strings.TrimSpace(rendered) != "" {
+		n.Text = rendered
+	}
 }
