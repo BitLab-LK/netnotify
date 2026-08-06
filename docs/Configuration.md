@@ -1,15 +1,31 @@
 # Configuration
 
-This document describes production operation of netnotify.
+`netnotify` configuration is loaded from YAML and can be overridden by environment variables and CLI flags.
 
-## Overview
+## Example YAML Configuration
 
-netnotify is a Go service organized around source parsers, domain notifications, a queueing application core and provider notifiers. Configuration is loaded from YAML and can be overridden by environment variables and CLI flags.
+```yaml
+server:
+  address: "127.0.0.1:8080"
+  metrics: true
 
-## Operational guidance
+log:
+  level: "info"
+  format: "json"
+  file: "/var/log/netnotify/netnotify.log"
 
-- Run as an unprivileged user.
-- Store provider credentials in environment variables or a root-readable environment file.
-- Keep TLS verification enabled unless using a controlled lab with private certificates.
-- Monitor /health and /metrics.
-- Validate configuration before restart with `netnotify validate --config /etc/netnotify/config.yaml`.
+heartbeat:
+  enabled: true
+  url: "https://hc-ping.com/your-uuid-here"
+  interval: "1m"
+  send_stop_on_exit: true
+```
+
+## Environment Variables
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `NETNOTIFY_HEARTBEAT_URL` | Healthchecks.io Ping URL | `""` |
+| `NETNOTIFY_HEARTBEAT_INTERVAL` | Ping frequency (e.g. `1m`, `5m`) | `1m` |
+| `NETNOTIFY_HEARTBEAT_SEND_STOP_ON_EXIT` | Send `/stop` ping on service shutdown | `true` |
+| `NETNOTIFY_SERVER_ADDRESS` | Local listen address for `/health` | `127.0.0.1:8080` |

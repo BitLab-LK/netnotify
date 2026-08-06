@@ -1,74 +1,56 @@
 # netnotify
 
-Universal Notification Gateway for Infrastructure Monitoring.
+Lightweight, Dedicated Healthchecks.io Heartbeat Daemon for Servers & VMs.
 
 [![CI](https://github.com/BitLab-LK/netnotify/actions/workflows/ci.yml/badge.svg)](https://github.com/BitLab-LK/netnotify/actions)
-[![CI](https://github.com/bitlab-dev/netnotify/actions/workflows/ci.yml/badge.svg)](https://github.com/bitlab-dev/netnotify/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-netnotify receives alerts from monitoring agents and routes them to notification providers. The first production path is Netdata Agent `health_alarm_notify` to GoWA and WhatsApp groups without Netdata Cloud Pro.
+`netnotify` is a dedicated single-purpose heartbeat daemon for servers and VMs. It periodically pings Healthchecks.io (or any uptime heartbeat service) to act as a **Dead Man's Switch**, alerting you immediately if your VM goes offline or crashes.
 
 ```mermaid
 flowchart LR
-  A[Netdata Agent] --> B[health_alarm_notify]
-  B --> C[netnotify HTTP source]
-  C --> D[Queue + Retry + Dedup]
-  D --> E[GoWA provider]
-  E --> F[WhatsApp Group]
+  A[netnotify Daemon] -->|Startup Ping| B[Healthchecks.io]
+  A -->|Every 1m Ping| B
+  A -->|On Shutdown: GET /stop| B
 ```
 
 ## Features
 
-- Clean Architecture with source and provider interfaces.
-- Netdata Agent source endpoint.
-- GoWA provider using `POST /send/message`, Basic Auth, `X-Device-Id`, HTTPS, group and individual recipients, mentions, retry, timeout and TLS verification controls.
-- YAML, environment variables and CLI flags with CLI > ENV > YAML precedence.
-- Worker queue, retry queue, dead-letter storage, duplicate detection and rate limiting.
-- External Go templates for critical, warning, clear and test messages.
-- JSON or console logging with file rotation.
-- Prometheus `/metrics` and `/health` endpoints.
-- Docker, Compose, systemd, GitHub Actions and GoReleaser assets.
+- **Automated Heartbeats:** Sends startup pings and periodic pings (default `1m`) to Healthchecks.io.
+- **Graceful Shutdown Signal:** Sends a `/stop` signal on `systemctl stop` to prevent false alerts during maintenance.
+- **Local Health Endpoint:** Exposes `http://127.0.0.1:8080/health` and `/metrics` for local checks.
+- **Hardened systemd Service:** Includes systemd service configuration with `0600` secret security.
+- **1-Click Installer:** Interactive setup for Ubuntu / Debian.
 
+## One-line Ubuntu Install
 
-## One-line Ubuntu install
-
-Run the installer on an Ubuntu host with systemd:
+Run the installer on your Ubuntu VM:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/BitLab-LK/netnotify/main/scripts/install-ubuntu.sh | sudo bash
 ```
 
-The installer prompts for the GoWA hosted URL, Basic Auth username and password, optional device ID, WhatsApp receiver type (`user` or `group`), receiver ID, and the local listen address. It installs the latest Linux release, writes `/etc/netnotify/config.yaml`, stores secrets in `/etc/netnotify/netnotify.env` with `0600` permissions, enables the hardened systemd service, and places a Netdata-compatible helper script under `/etc/netdata/custom-plugins.d/`.
+The installer prompts for your **Healthchecks.io Ping URL** and **Ping Interval**, writes `/etc/netnotify/config.yaml`, stores secrets in `/etc/netnotify/netnotify.env`, and starts the hardened systemd service.
 
-## Quick start
+## Quick Start
 
 ```bash
 cp configs/config.example.yaml config.yaml
-export NETNOTIFY_PROVIDERS_GOWA_USERNAME=admin
-export NETNOTIFY_PROVIDERS_GOWA_PASSWORD=secret
+export NETNOTIFY_HEARTBEAT_URL="https://hc-ping.com/your-uuid-here"
 go run ./cmd/netnotify --config config.yaml
 ```
 
-Send a Netdata-compatible alert:
+Test a manual heartbeat ping:
 
 ```bash
-curl -X POST http://127.0.0.1:8080/v1/sources/netdata \
-  -d alarm=cpu_usage -d status=CRITICAL -d hostname=node-01
+go run ./cmd/netnotify ping --config config.yaml
 ```
 
-## CLI
+Check local health endpoint:
 
-`netnotify` includes `install`, `uninstall`, `validate`, `doctor`, `send`, `test`, `version`, `config`, `providers`, `sources`, `logs` and `health` commands. Packaged installation commands install the systemd service and Netdata helper script.
-
-## Roadmap
-
-- Telegram, Slack, Discord, Teams, Google Chat, Mattermost, Rocket.Chat, ntfy, Gotify, Pushover, Signal, SMTP, Webhook, Apprise, Twilio, SMS and Matrix providers.
-- Prometheus Alertmanager, Grafana, Uptime Kuma, Beszel, Zabbix, Nagios, CheckMK, Icinga and custom webhook sources.
-- Persistent queue backends and HA deployments.
-
-## Documentation
-
-See `docs/` for architecture, installation, configuration, development, contributing, security, troubleshooting, provider and source development, and releases.
+```bash
+curl -fsS http://127.0.0.1:8080/health
+```
 
 ## License
 

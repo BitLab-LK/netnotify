@@ -2,18 +2,17 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 
 	"github.com/bitlab-dev/netnotify/internal/app"
 	"github.com/bitlab-dev/netnotify/internal/config"
-	"github.com/bitlab-dev/netnotify/internal/domain"
-	"github.com/bitlab-dev/netnotify/internal/provider/gowa"
+	"github.com/bitlab-dev/netnotify/internal/heartbeat"
+	"github.com/bitlab-dev/netnotify/internal/logger"
 )
 
-var Version = "0.1.0"
+var Version = "0.2.0"
 
 func Execute() error {
 	cfgFile := ""
@@ -39,38 +38,23 @@ func Execute() error {
 			fmt.Println("configuration valid")
 		}
 		return err
-	case "providers":
-		fmt.Println("gowa")
-		return nil
-	case "sources":
-		fmt.Println("netdata")
-		return nil
-	case "health":
+	case "health", "test", "ping":
 		c, err := config.Load(cfgFile)
 		if err != nil {
 			return err
 		}
-		if c.Providers.GoWA.Enabled {
-			return gowa.New(c.Providers.GoWA).Health(context.Background())
+		if !c.Heartbeat.Enabled || c.Heartbeat.URL == "" {
+			return fmt.Errorf("heartbeat is disabled or missing URL")
 		}
-		return nil
-	case "send":
-		c, err := config.Load(cfgFile)
-		if err != nil {
-			return err
+		log := logger.New(c.Log)
+		svc := heartbeat.New(c.Heartbeat, log)
+		fmt.Printf("Sending test heartbeat ping to %s...\n", c.Heartbeat.URL)
+		err = svc.Ping(context.Background(), c.Heartbeat.URL)
+		if err == nil {
+			fmt.Println("Heartbeat ping successful!")
 		}
-		n := domain.NewNotification()
-		n.Provider = "gowa"
-		n.Severity = domain.SeverityInfo
-		n.Title = "netnotify test"
-		n.Text = "netnotify test message"
-		if os.Getenv("NETNOTIFY_DRY_RUN") != "" {
-			b, _ := json.Marshal(n)
-			fmt.Println(string(b))
-			return nil
-		}
-		return gowa.New(c.Providers.GoWA).Notify(context.Background(), n)
-	case "install", "uninstall", "doctor", "test", "config", "logs":
+		return err
+	case "install", "uninstall", "doctor", "config", "logs":
 		fmt.Printf("%s command available in packaged installations\n", args[0])
 		return nil
 	default:

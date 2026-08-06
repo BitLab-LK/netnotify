@@ -9,9 +9,6 @@ LOG_DIR="/var/log/netnotify"
 SERVICE_FILE="/etc/systemd/system/netnotify.service"
 ENV_FILE="${CONFIG_DIR}/netnotify.env"
 CONFIG_FILE="${CONFIG_DIR}/config.yaml"
-TEMPLATE_DIR="${CONFIG_DIR}/templates"
-NETDATA_NOTIFY_DIR="/etc/netdata/custom-plugins.d"
-NETDATA_NOTIFY_FILE="${NETDATA_NOTIFY_DIR}/netnotify-health-alarm-notify.sh"
 
 require_root() {
   if [[ "${EUID}" -ne 0 ]]; then
@@ -49,23 +46,6 @@ prompt() {
       return 0
     fi
     echo "A value is required." >&2
-  done
-}
-
-prompt_choice() {
-  local name="$1" label="$2" default="$3" value
-  if [[ ! -t 0 && ! -c /dev/tty ]]; then
-    printf -v "${name}" '%s' "${default}"
-    return 0
-  fi
-
-  while true; do
-    read -r -p "${label} [user/group, default: ${default}]: " value < /dev/tty
-    value="${value:-${default}}"
-    case "${value}" in
-      user|group) printf -v "${name}" '%s' "${value}"; return 0 ;;
-      *) echo "Enter 'user' or 'group'." >&2 ;;
-    esac
   done
 }
 
@@ -128,73 +108,15 @@ create_user_and_dirs() {
   if ! id netnotify >/dev/null 2>&1; then
     useradd --system --home "${STATE_DIR}" --shell /usr/sbin/nologin netnotify
   fi
-  install -d -m 0755 "${CONFIG_DIR}" "${TEMPLATE_DIR}"
+  install -d -m 0755 "${CONFIG_DIR}"
   install -d -m 0750 -o netnotify -g netnotify "${STATE_DIR}" "${LOG_DIR}"
 }
 
-write_templates() {
-  cat > "${TEMPLATE_DIR}/critical.tmpl" <<'TEMPLATE'
-🚨 *[CRITICAL]* {{ .Title }}
-
-{{ .Summary }}
-
-*Source:* {{ .Source }}
-*Status:* {{ .Status }}
-*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
-{{ range $k, $v := .Labels }}{{ if $v }}*{{ $k }}:* {{ $v }}
-{{ end }}{{ end }}
-TEMPLATE
-
-  cat > "${TEMPLATE_DIR}/warning.tmpl" <<'TEMPLATE'
-⚠️ *[WARNING]* {{ .Title }}
-
-{{ .Summary }}
-
-*Source:* {{ .Source }}
-*Status:* {{ .Status }}
-*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
-{{ range $k, $v := .Labels }}{{ if $v }}*{{ $k }}:* {{ $v }}
-{{ end }}{{ end }}
-TEMPLATE
-
-  cat > "${TEMPLATE_DIR}/clear.tmpl" <<'TEMPLATE'
-✅ *[RESOLVED]* {{ .Title }}
-
-{{ .Summary }}
-
-*Source:* {{ .Source }}
-*Status:* {{ .Status }}
-*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
-{{ range $k, $v := .Labels }}{{ if $v }}*{{ $k }}:* {{ $v }}
-{{ end }}{{ end }}
-TEMPLATE
-
-  cat > "${TEMPLATE_DIR}/test.tmpl" <<'TEMPLATE'
-🔔 *[TEST]* {{ .Title }}
-
-{{ .Summary }}
-
-*Source:* {{ .Source }}
-*Status:* {{ .Status }}
-*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
-{{ range $k, $v := .Labels }}{{ if $v }}*{{ $k }}:* {{ $v }}
-{{ end }}{{ end }}
-TEMPLATE
-
-  chmod 0644 "${TEMPLATE_DIR}"/*.tmpl
-}
-
 write_config() {
-  local group_bool="false"
-  [[ "${RECEIVER_TYPE}" == "group" ]] && group_bool="true"
   cat > "${CONFIG_FILE}" <<EOF_CONFIG
 server:
   address: "${LISTEN_ADDRESS}"
   metrics: true
-  basic_auth:
-    enabled: false
-    username: ""
-    password: ""
 log:
   level: info
   format: json
@@ -202,38 +124,18 @@ log:
   max_size_mb: 50
   max_backups: 5
   max_age_days: 30
-queue:
-  workers: 4
-  size: 1000
-  retries: 3
-  retry_interval: 5s
-  dedup_ttl: 5m
-  rate_per_second: 10
-providers:
-  default: gowa
-  gowa:
-    enabled: true
-    base_url: "${GOWA_URL}"
-    username: "\${NETNOTIFY_PROVIDERS_GOWA_USERNAME}"
-    password: "\${NETNOTIFY_PROVIDERS_GOWA_PASSWORD}"
-    device_id: "${GOWA_DEVICE_ID}"
-    recipient: "${RECEIVER_ID}"
-    group: ${group_bool}
-    timeout: 10s
-    tls_skip_verify: false
-sources:
-  netdata:
-    provider: gowa
-    default_recipient: "${RECEIVER_ID}"
-templates:
-  directory: "${TEMPLATE_DIR}"
+heartbeat:
+  enabled: true
+  url: "${HEARTBEAT_URL}"
+  interval: "${HEARTBEAT_INTERVAL}"
+  send_stop_on_exit: true
 EOF_CONFIG
   chmod 0640 "${CONFIG_FILE}"
   chown root:netnotify "${CONFIG_FILE}"
 
   cat > "${ENV_FILE}" <<EOF_ENV
-NETNOTIFY_PROVIDERS_GOWA_USERNAME=${GOWA_USERNAME}
-NETNOTIFY_PROVIDERS_GOWA_PASSWORD=${GOWA_PASSWORD}
+NETNOTIFY_HEARTBEAT_URL=${HEARTBEAT_URL}
+NETNOTIFY_HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL}
 EOF_ENV
   chmod 0600 "${ENV_FILE}"
   chown root:root "${ENV_FILE}"
@@ -242,7 +144,7 @@ EOF_ENV
 write_systemd() {
   cat > "${SERVICE_FILE}" <<EOF_SERVICE
 [Unit]
-Description=netnotify notification gateway
+Description=netnotify Healthchecks.io Heartbeat Daemon
 After=network-online.target
 Wants=network-online.target
 
@@ -267,23 +169,6 @@ EOF_SERVICE
   systemctl restart netnotify || systemctl enable --now netnotify
 }
 
-write_netdata_helper() {
-  install -d -m 0755 "${NETDATA_NOTIFY_DIR}"
-  cat > "${NETDATA_NOTIFY_FILE}" <<EOF_NETDATA
-#!/usr/bin/env sh
-set -eu
-: "\${NETNOTIFY_URL:=http://${LISTEN_ADDRESS}/v1/sources/netdata}"
-curl -fsS -X POST "\${NETNOTIFY_URL}" \
-  --data-urlencode "alarm=\${alarm:-\${ALARM:-}}" \
-  --data-urlencode "status=\${status:-\${STATUS:-}}" \
-  --data-urlencode "hostname=\${hostname:-\${HOSTNAME:-}}" \
-  --data-urlencode "chart=\${chart:-\${CHART:-}}" \
-  --data-urlencode "family=\${family:-\${FAMILY:-}}" \
-  --data-urlencode "summary=\${info:-\${INFO:-}}"
-EOF_NETDATA
-  chmod 0755 "${NETDATA_NOTIFY_FILE}"
-}
-
 main() {
   require_root
   if ! is_ubuntu; then
@@ -296,47 +181,31 @@ main() {
     set +a
   fi
   if [[ -r "${CONFIG_FILE}" ]]; then
-    local cfg_addr cfg_gowa_url cfg_rec_id cfg_group
+    local cfg_addr cfg_hb_url cfg_hb_interval
     cfg_addr="$(grep -E '^\s*address:' "${CONFIG_FILE}" | head -n 1 | awk '{print $2}' | tr -d '"')"
-    cfg_gowa_url="$(grep -E '^\s*base_url:' "${CONFIG_FILE}" | head -n 1 | awk '{print $2}' | tr -d '"')"
-    cfg_rec_id="$(grep -E '^\s*recipient:' "${CONFIG_FILE}" | head -n 1 | awk '{print $2}' | tr -d '"')"
-    cfg_group="$(grep -E '^\s*group:' "${CONFIG_FILE}" | head -n 1 | awk '{print $2}')"
+    cfg_hb_url="$(grep -E '^\s*url:' "${CONFIG_FILE}" | head -n 1 | awk '{print $2}' | tr -d '"')"
+    cfg_hb_interval="$(grep -E '^\s*interval:' "${CONFIG_FILE}" | head -n 1 | awk '{print $2}' | tr -d '"')"
     
     NETNOTIFY_LISTEN_ADDRESS="${NETNOTIFY_LISTEN_ADDRESS:-${cfg_addr:-127.0.0.1:8080}}"
-    NETNOTIFY_GOWA_URL="${NETNOTIFY_GOWA_URL:-${cfg_gowa_url:-}}"
-    NETNOTIFY_RECEIVER_ID="${NETNOTIFY_RECEIVER_ID:-${cfg_rec_id:-}}"
-    if [[ "${cfg_group}" == "true" ]]; then
-      NETNOTIFY_RECEIVER_TYPE="${NETNOTIFY_RECEIVER_TYPE:-group}"
-    elif [[ "${cfg_group}" == "false" ]]; then
-      NETNOTIFY_RECEIVER_TYPE="${NETNOTIFY_RECEIVER_TYPE:-user}"
-    fi
-    NETNOTIFY_GOWA_USERNAME="${NETNOTIFY_GOWA_USERNAME:-${NETNOTIFY_PROVIDERS_GOWA_USERNAME:-}}"
-    NETNOTIFY_GOWA_PASSWORD="${NETNOTIFY_GOWA_PASSWORD:-${NETNOTIFY_PROVIDERS_GOWA_PASSWORD:-}}"
+    NETNOTIFY_HEARTBEAT_URL="${NETNOTIFY_HEARTBEAT_URL:-${cfg_hb_url:-}}"
+    NETNOTIFY_HEARTBEAT_INTERVAL="${NETNOTIFY_HEARTBEAT_INTERVAL:-${cfg_hb_interval:-1m}}"
   fi
 
-  echo "netnotify Ubuntu installer"
-  prompt GOWA_URL "GoWA base URL, including https:// and port if needed" "${NETNOTIFY_GOWA_URL:-}"
-  prompt GOWA_USERNAME "GoWA Basic Auth username" "${NETNOTIFY_GOWA_USERNAME:-}"
-  prompt GOWA_PASSWORD "GoWA Basic Auth password" "${NETNOTIFY_GOWA_PASSWORD:-}" true
-  prompt GOWA_DEVICE_ID "GoWA device ID (press Enter for default device)" "${NETNOTIFY_GOWA_DEVICE_ID:-default}"
-  [[ "${GOWA_DEVICE_ID}" == "default" ]] && GOWA_DEVICE_ID=""
-  prompt_choice RECEIVER_TYPE "WhatsApp receiver type" "${NETNOTIFY_RECEIVER_TYPE:-group}"
-  prompt RECEIVER_ID "WhatsApp receiver ID (group JID or phone/JID)" "${NETNOTIFY_RECEIVER_ID:-}"
-  prompt LISTEN_ADDRESS "netnotify listen address" "${NETNOTIFY_LISTEN_ADDRESS:-127.0.0.1:8080}"
+  echo "netnotify Healthchecks.io Installer"
+  prompt HEARTBEAT_URL "Healthchecks.io Ping URL (e.g. https://hc-ping.com/your-uuid)" "${NETNOTIFY_HEARTBEAT_URL:-}"
+  prompt HEARTBEAT_INTERVAL "Ping interval" "${NETNOTIFY_HEARTBEAT_INTERVAL:-1m}"
+  prompt LISTEN_ADDRESS "netnotify local listen address" "${NETNOTIFY_LISTEN_ADDRESS:-127.0.0.1:8080}"
 
   install_packages
   create_user_and_dirs
   download_binary
-  write_templates
   write_config
   write_systemd
-  write_netdata_helper
 
   echo
-  echo "netnotify is updated and running."
+  echo "netnotify Healthchecks.io Heartbeat Daemon is updated and running!"
   echo "Config: ${CONFIG_FILE}"
   echo "Secrets: ${ENV_FILE}"
-  echo "Netdata helper: ${NETDATA_NOTIFY_FILE}"
   echo "Health check: curl -fsS http://${LISTEN_ADDRESS}/health"
 }
 

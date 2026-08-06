@@ -1,10 +1,6 @@
 server:
-  address: ":8080"
+  address: "127.0.0.1:8080"
   metrics: true
-  basic_auth:
-    enabled: false
-    username: ""
-    password: ""
 log:
   level: info
   format: json
@@ -12,28 +8,8 @@ log:
   max_size_mb: 50
   max_backups: 5
   max_age_days: 30
-queue:
-  workers: 4
-  size: 1000
-  retries: 3
-  retry_interval: 5s
-  dedup_ttl: 5m
-  rate_per_second: 10
-providers:
-  default: gowa
-  gowa:
-    enabled: true
-    base_url: "https://gowa.example.internal"
-    username: "${NETNOTIFY_PROVIDERS_GOWA_USERNAME}"
-    password: "${NETNOTIFY_PROVIDERS_GOWA_PASSWORD}"
-    device_id: ""
-    recipient: "120363000000000000@g.us"
-    group: true
-    timeout: 10s
-    tls_skip_verify: false
-sources:
-  netdata:
-    provider: gowa
-    default_recipient: "120363000000000000@g.us"
-templates:
-  directory: templates
+heartbeat:
+  enabled: true
+  url: "https://hc-ping.com/your-uuid-here"
+  interval: "1m"
+  send_stop_on_exit: true
