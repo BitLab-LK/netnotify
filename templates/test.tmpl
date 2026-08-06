@@ -1,9 +1,9 @@
-[{{ .Severity }}] {{ .Title }}
+🔔 *[TEST]* {{ .Title }}
 
 {{ .Summary }}
-{{ if .Text }}{{ .Text }}{{ end }}
-Source: {{ .Source }}
-Status: {{ .Status }}
-Started: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
-{{ range $k, $v := .Labels }}{{ $k }}={{ $v }}
-{{ end }}
+
+*Source:* {{ .Source }}
+*Status:* {{ .Status }}
+*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+{{ range $k, $v := .Labels }}{{ if $v }}*{{ $k }}:* {{ $v }}
+{{ end }}{{ end }}

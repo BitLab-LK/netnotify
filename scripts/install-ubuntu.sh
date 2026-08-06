@@ -133,22 +133,55 @@ create_user_and_dirs() {
 }
 
 write_templates() {
-  for severity in critical warning clear test; do
-    if [[ ! -f "${TEMPLATE_DIR}/${severity}.tmpl" ]]; then
-      cat > "${TEMPLATE_DIR}/${severity}.tmpl" <<'TEMPLATE'
-[{{ .Severity }}] {{ .Title }}
+  cat > "${TEMPLATE_DIR}/critical.tmpl" <<'TEMPLATE'
+🚨 *[CRITICAL]* {{ .Title }}
 
 {{ .Summary }}
-{{ if .Text }}{{ .Text }}{{ end }}
-Source: {{ .Source }}
-Status: {{ .Status }}
-Started: {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
-{{ range $k, $v := .Labels }}{{ $k }}={{ $v }}
-{{ end }}
+
+*Source:* {{ .Source }}
+*Status:* {{ .Status }}
+*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+{{ range $k, $v := .Labels }}{{ if $v }}*{{ $k }}:* {{ $v }}
+{{ end }}{{ end }}
 TEMPLATE
-      chmod 0644 "${TEMPLATE_DIR}/${severity}.tmpl"
-    fi
-  done
+
+  cat > "${TEMPLATE_DIR}/warning.tmpl" <<'TEMPLATE'
+⚠️ *[WARNING]* {{ .Title }}
+
+{{ .Summary }}
+
+*Source:* {{ .Source }}
+*Status:* {{ .Status }}
+*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+{{ range $k, $v := .Labels }}{{ if $v }}*{{ $k }}:* {{ $v }}
+{{ end }}{{ end }}
+TEMPLATE
+
+  cat > "${TEMPLATE_DIR}/clear.tmpl" <<'TEMPLATE'
+✅ *[RESOLVED]* {{ .Title }}
+
+{{ .Summary }}
+
+*Source:* {{ .Source }}
+*Status:* {{ .Status }}
+*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+{{ range $k, $v := .Labels }}{{ if $v }}*{{ $k }}:* {{ $v }}
+{{ end }}{{ end }}
+TEMPLATE
+
+  cat > "${TEMPLATE_DIR}/test.tmpl" <<'TEMPLATE'
+🔔 *[TEST]* {{ .Title }}
+
+{{ .Summary }}
+
+*Source:* {{ .Source }}
+*Status:* {{ .Status }}
+*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+{{ range $k, $v := .Labels }}{{ if $v }}*{{ $k }}:* {{ $v }}
+{{ end }}{{ end }}
+TEMPLATE
+
+  chmod 0644 "${TEMPLATE_DIR}"/*.tmpl
 }
 
 write_config() {
